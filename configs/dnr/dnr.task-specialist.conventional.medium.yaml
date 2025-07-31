@@ -1,0 +1,334 @@
+# Copyright (C) 2025 Mitsubishi Electric Research Laboratories (MERL)
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+sort_prompts: true
+
+# Basic training config
+batch_size: 4  # training size
+val_batch_size: 4 # cv batch size
+seed:  20240618  # seed for initializing training
+num_workers: 4  # number of workers in dataloaders, 0 for single thread
+
+
+trainer_conf:
+  # basic trainer configs
+  max_epochs: 150
+  limit_train_batches: 2500
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  gradient_clip_val: 5.0
+  # DDP strategy, must be `ddp_find_unused_parameters_true` when using multiple GPUs
+  # since the model has learnable prompts not all of which are always used in each training step
+  strategy: ddp_find_unused_parameters_true  # auto
+  # deterministic training
+  deterministic: true
+  # mixed precision training
+  precision: bf16-mixed
+
+
+# model checkpoint callback
+model_checkpoint:
+  monitor: val/loss
+  save_top_k: 5
+  mode: min
+  save_weights_only: false
+  save_last: true
+save_checkpoint_every_n_epochs: 25
+# early stopping callback
+early_stopping: null
+
+
+# dataset config
+dynamic_mixing: true
+# in the dynamic mixing mode, the number of sources changes in each mini-batch
+# the following configs are used to determine the number of sources in each mini-batch
+num_srcs_and_weights:
+  # num_src: probablity
+  1: 0.0  # no single-source mixture
+  2: 0.0
+  3: 1.0
+  4: 0.0
+# prompt configs
+  # source-type (e.g., speech)
+  #  next: dict of next source-type and its probability
+  # init_prob: initial probability of the source-type
+  # num_appear: number of appearance in each mixture
+  # gain: gain range in dB
+  # dynamic_mixing_prob: probability to make sfxbg or musicbg on the fly using individual sfx or music sources
+prompts:
+  speech:
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.5
+      bass: 0.0
+      drums: 0.0
+      vocals: 0.0
+      other: 0.0
+      musicbg: 0.5
+    init_prob: 0.33
+    num_appear: 1
+    gain: [-10, 0]
+
+  sfx: # necessary for dynamic mixing of sfx-bg
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.0
+      drums: 0.0
+      vocals: 0.0
+      other: 0.0
+      musicbg: 0.0
+    init_prob: 0.0
+    num_appear: 4
+    gain: [-20, 0]
+
+  sfxbg:
+    next:
+      speech: 0.5
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.0
+      drums: 0.0
+      vocals: 0.0
+      other: 0.0
+      musicbg: 0.5
+    init_prob: 0.33
+    num_appear: 1
+    gain: [-20, 0]
+    dynamic_mixing_prob: 0.25
+    num_srcs_and_weights:
+      1: 0.1
+      2: 0.4
+      3: 0.4
+      4: 0.1
+
+  bass: # necessary for dynamic mixing of music-bg
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.0
+      drums: 0.33
+      vocals: 0.33
+      other: 0.33
+      musicbg: 0.0
+    init_prob: 0.00
+    num_appear: 1
+    gain: [-10, 0]
+
+  drums:
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.33
+      drums: 0.00
+      vocals: 0.33
+      other: 0.33
+      musicbg: 0.0
+    init_prob: 0.00
+    num_appear: 1
+    gain: [-10, 0]
+
+  vocals:
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.33
+      drums: 0.33
+      vocals: 0.00
+      other: 0.33
+      musicbg: 0.0
+    init_prob: 0.00
+    num_appear: 1
+    gain: [-10, 0]
+
+  other:
+    next:
+      speech: 0.0
+      sfx: 0.0
+      sfxbg: 0.0
+      bass: 0.33
+      drums: 0.33
+      vocals: 0.33
+      other: 0.00
+      musicbg: 0.0
+    init_prob: 0.00
+    num_appear: 1
+    gain: [-10, 0]
+
+  musicbg:
+    next:
+      speech: 0.5
+      sfx: 0.0
+      sfxbg: 0.5
+      bass: 0.0
+      drums: 0.0
+      vocals: 0.0
+      other: 0.0
+      musicbg: 0.0
+    init_prob: 0.33
+    num_appear: 1
+    gain: [-20, 0]
+    dynamic_mixing_prob: 0.25
+    num_srcs_and_weights:
+      1: 0.1
+      2: 0.4
+      3: 0.4
+      4: 0.1
+
+
+dataset_conf:
+  train:
+    chunk_size: &chunk_size 6  # 6 seconds
+    sample_rate: &sample_rate 48000  # always up-sample to 48k
+    downsample_to_minimum_fs: true
+    max_num_src: 3
+    json_paths:
+      # speech
+      - datasets/json_files/vctk_48k.json
+      - datasets/json_files/wsj0_speech_16k.json
+      - datasets/json_files/librivox_urgent2024.json
+      # sfx(-bg)
+      - datasets/json_files/fsd50k_44.1k.json
+      - datasets/json_files/wham_noise_48k.json
+      - datasets/json_files/demand_48k.json
+      # music(-bg)
+      - datasets/json_files/moisesdb_44.1k_sad.json
+      - datasets/json_files/musdb18hq_44.1k_sad.json
+      - datasets/json_files/fma_44.1k.json
+
+  valid:
+    json_path_and_num_data:
+      # [path-to-json-file, num_data]
+      # all the validation data is used if num_data is `null`
+      # num data is limited in this config to avoid too long validation time
+      # NOTE: nun_data must be a multiple of val_batch_size; otherwise, an error occurs
+      - [datasets/json_files/dnr_44.1k.json, 100]
+
+  test:
+    json_path_and_num_data:
+      # [path-to-json-file, num_data] or # [path-to-json-file, num_data, ref_channel]
+      # as the model is monaural, channel 0 and 1 are separately evaluated and
+      # the scores are later aggregated for MSS
+      - [datasets/json_files/dnr_44.1k.json, null]
+
+# css-style inference
+css_datasets: [musdb18hq, dnr]
+css_conf:
+  segment_size: *chunk_size
+  shift_size: *chunk_size
+  solve_perm: false
+  normalize_segment_scale: false
+  sample_rate: *sample_rate
+variance_normalization: true
+
+
+# encoder
+encoder_name: &encoder_name stft
+encoder_conf: &encoder_conf
+  fft_size: &fft_size 2048
+  window_length: *fft_size
+  hop_length: 512
+  window_type: sqrt_hann
+  normalize: null
+
+
+# decoder
+decoder_name: *encoder_name
+decoder_conf: *encoder_conf
+
+
+# separator
+model_name: bslocoformer_stack
+model_conf:
+  num_spk: 3
+  # configs for the first block
+  n_first_blocks: 4
+  config_first_block:
+    emb_dim: &emb_dim 64
+    num_groups: &num_groups 8
+    tf_order: &tf_order ft
+    n_heads: &n_heads 4
+    flash_attention: &flash_attention true
+    attention_dim: 128
+    freq_ffn_config:
+      - conf:
+          dim_inner: 384
+          conv1d_kernel: 4
+          conv1d_shift: 1
+      - conf:
+          dim_inner: 384
+          conv1d_kernel: 4
+          conv1d_shift: 1
+    frame_ffn_config:
+      - conf:
+          dim_inner: 384
+          conv1d_kernel: 1
+          conv1d_shift: 1
+      - conf:
+          dim_inner: 384
+          conv1d_kernel: 1
+          conv1d_shift: 1
+
+  # configs for the second block
+  n_second_blocks: 2
+  config_second_block:
+    emb_dim: *emb_dim
+    num_groups: *num_groups
+    tf_order: *tf_order
+    n_heads: *n_heads
+    flash_attention: *flash_attention
+    attention_dim: 96
+    freq_ffn_config:
+      - conf:
+          dim_inner: 256
+          conv1d_kernel: 4
+          conv1d_shift: 1
+      - conf:
+          dim_inner: 256
+          conv1d_kernel: 4
+          conv1d_shift: 1
+    frame_ffn_config:
+      - conf:
+          dim_inner: 256
+          conv1d_kernel: 4
+          conv1d_shift: 1
+      - conf:
+          dim_inner: 256
+          conv1d_kernel: 4
+          conv1d_shift: 1
+
+  sample_rate: *sample_rate
+  stft_size: *fft_size
+
+# loss_func
+loss_func_name: snr_with_zero_refs
+loss_func_conf:
+  snr_max: 30
+  zero_ref_loss_weight: 0.1
+  eps: 1.0e-7
+pit_loss: false
+
+
+# optimizer
+optimizer_name: adamw
+optimizer_conf:
+  lr: 1.0e-3
+  weight_decay: 1.0e-2
+  eps: 1.0e-8
+
+
+# learning rate scheduler
+scheduler_name: reducelr
+scheduler_conf:
+  patience: 5
+  factor: 0.5
+keep_lr_epochs: 75
+warmup_steps: 10000
+
+pretrained_model_path: null

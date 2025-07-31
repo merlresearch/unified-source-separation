@@ -1,0 +1,318 @@
+# Copyright (C) 2025 Mitsubishi Electric Research Laboratories (MERL)
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+batch_size: 2
+css_conf:
+  normalize_segment_scale: false
+  sample_rate: 48000
+  segment_size: 6
+  shift_size: 6
+  solve_perm: false
+css_datasets:
+- musdb18hq
+- dnr
+dataset_conf:
+  test:
+    json_path_and_num_data:
+    - - datasets/json_files/vctk_demand_48k.json
+      - null
+    - - datasets/json_files/musdb18hq_44.1k_sad.json
+      - null
+      - 0
+    - - datasets/json_files/musdb18hq_44.1k_sad.json
+      - null
+      - 1
+    - - datasets/json_files/dnr_44.1k.json
+      - null
+    - - datasets/json_files/wham_max_16k.json
+      - null
+    - - datasets/json_files/fuss_2src_16k.json
+      - null
+    - - datasets/json_files/fuss_3src_16k.json
+      - null
+    - - datasets/json_files/fuss_4src_16k.json
+      - null
+  train:
+    chunk_size: 6
+    downsample_to_minimum_fs: true
+    json_paths:
+    - datasets/json_files/vctk_48k.json
+    - datasets/json_files/wsj0_speech_16k.json
+    - datasets/json_files/librivox_urgent2024.json
+    - datasets/json_files/fsd50k_44.1k.json
+    - datasets/json_files/wham_noise_48k.json
+    - datasets/json_files/demand_48k.json
+    - datasets/json_files/moisesdb_44.1k_sad.json
+    - datasets/json_files/musdb18hq_44.1k_sad.json
+    - datasets/json_files/fma_44.1k.json
+    max_num_src: 4
+    sample_rate: 48000
+  valid:
+    json_path_and_num_data:
+    - - datasets/json_files/vctk_demand_48k.json
+      - 500
+    - - datasets/json_files/musdb18hq_44.1k_sad.json
+      - 12
+    - - datasets/json_files/dnr_44.1k.json
+      - 100
+    - - datasets/json_files/wham_max_16k.json
+      - 500
+    - - datasets/json_files/fuss_2src_16k.json
+      - 200
+    - - datasets/json_files/fuss_3src_16k.json
+      - 200
+    - - datasets/json_files/fuss_4src_16k.json
+      - 200
+decoder_conf: &id001
+  fft_size: 2048
+  hop_length: 512
+  normalize: null
+  window_length: 2048
+  window_type: sqrt_hann
+decoder_name: stft
+dynamic_mixing: true
+early_stopping: null
+encoder_conf: *id001
+encoder_name: stft
+keep_lr_epochs: 75
+loss_func_conf:
+  eps: 1.0e-07
+  snr_max: 30
+  zero_ref_loss_weight: 0.1
+loss_func_name: snr_with_zero_refs
+model_checkpoint:
+  mode: min
+  monitor: val/loss
+  save_last: true
+  save_top_k: 5
+  save_weights_only: false
+model_conf:
+  conf_cond_tse_module:
+    attention_dim: 192
+    emb_dim: 128
+    flash_attention: false
+    frame_ffn_config:
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 256
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 256
+    freq_ffn_config:
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 256
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 256
+    n_heads: 8
+    num_groups: 8
+    tf_order: ft
+  conf_cross_prompt_module:
+    attention_dim: 256
+    emb_dim: 128
+    flash_attention: false
+    frame_ffn_config:
+    - conf:
+        conv1d_kernel: 1
+        conv1d_shift: 1
+        dim_inner: 384
+    - conf:
+        conv1d_kernel: 1
+        conv1d_shift: 1
+        dim_inner: 384
+    freq_ffn_config:
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 384
+    - conf:
+        conv1d_kernel: 4
+        conv1d_shift: 1
+        dim_inner: 384
+    n_heads: 8
+    num_groups: 8
+    tf_order: ft
+  nblocks_cond_tse_module: 3
+  nblocks_cross_prompt_module: 6
+  prompts:
+  - speech
+  - sfx
+  - sfxbg
+  - drums
+  - bass
+  - vocals
+  - other
+  - musicbg
+  sample_rate: 48000
+  stft_size: 2048
+  use_sos_token: true
+model_name: tuss
+num_srcs_and_weights:
+  1: 0.0
+  2: 0.333
+  3: 0.333
+  4: 0.333
+num_workers: 4
+optimizer_conf:
+  eps: 0.0001
+  lr: 0.001
+  weight_decay: 0.01
+optimizer_name: adamw
+pit_loss: false
+prompts:
+  bass:
+    gain:
+    - -10
+    - 0
+    init_prob: 0.05
+    next:
+      bass: 0.0
+      drums: 0.3
+      musicbg: 0.0
+      other: 0.3
+      sfx: 0.0333
+      sfxbg: 0.0333
+      speech: 0.0333
+      vocals: 0.3
+    num_appear: 1
+  drums:
+    gain:
+    - -10
+    - 0
+    init_prob: 0.05
+    next:
+      bass: 0.3
+      drums: 0.0
+      musicbg: 0.0
+      other: 0.3
+      sfx: 0.0333
+      sfxbg: 0.0333
+      speech: 0.0333
+      vocals: 0.3
+    num_appear: 1
+  musicbg:
+    dynamic_mixing_prob: 0.25
+    gain:
+    - -20
+    - 0
+    init_prob: 0.2
+    next:
+      bass: 0.0
+      drums: 0.0
+      musicbg: 0.0
+      other: 0.0
+      sfx: 0.33
+      sfxbg: 0.33
+      speech: 0.33
+      vocals: 0.0
+    num_appear: 1
+    num_srcs_and_weights:
+      1: 0.1
+      2: 0.4
+      3: 0.4
+      4: 0.1
+  other:
+    gain:
+    - -10
+    - 0
+    init_prob: 0.05
+    next:
+      bass: 0.3
+      drums: 0.3
+      musicbg: 0.0
+      other: 0.0
+      sfx: 0.0333
+      sfxbg: 0.0333
+      speech: 0.0333
+      vocals: 0.3
+    num_appear: 1
+  sfx:
+    gain:
+    - -20
+    - 0
+    init_prob: 0.2
+    next:
+      bass: 0.025
+      drums: 0.025
+      musicbg: 0.2
+      other: 0.025
+      sfx: 0.5
+      sfxbg: 0.0
+      speech: 0.2
+      vocals: 0.025
+    num_appear: 100
+  sfxbg:
+    dynamic_mixing_prob: 0.25
+    gain:
+    - -20
+    - 0
+    init_prob: 0.2
+    next:
+      bass: 0.025
+      drums: 0.025
+      musicbg: 0.4
+      other: 0.025
+      sfx: 0.0
+      sfxbg: 0.0
+      speech: 0.5
+      vocals: 0.025
+    num_appear: 1
+    num_srcs_and_weights:
+      1: 0.1
+      2: 0.4
+      3: 0.4
+      4: 0.1
+  speech:
+    gain:
+    - -10
+    - 0
+    init_prob: 0.2
+    next:
+      bass: 0.025
+      drums: 0.025
+      musicbg: 0.2
+      other: 0.025
+      sfx: 0.1
+      sfxbg: 0.2
+      speech: 0.4
+      vocals: 0.025
+    num_appear: 100
+  vocals:
+    gain:
+    - -10
+    - 0
+    init_prob: 0.05
+    next:
+      bass: 0.3
+      drums: 0.3
+      musicbg: 0.0
+      other: 0.3
+      sfx: 0.0333
+      sfxbg: 0.0333
+      speech: 0.0333
+      vocals: 0.0
+    num_appear: 1
+save_checkpoint_every_n_epochs: 25
+scheduler_conf:
+  factor: 0.5
+  patience: 5
+scheduler_name: reducelr
+seed: 20240618
+trainer_conf:
+  deterministic: true
+  gradient_clip_val: 5.0
+  limit_test_batches: 1.0
+  limit_train_batches: 2500
+  limit_val_batches: 1.0
+  max_epochs: 150
+  precision: bf16-mixed
+  strategy: ddp_find_unused_parameters_true
+val_batch_size: 1
+variance_normalization: true
+warmup_steps: 10000
